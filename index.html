@@ -28,12 +28,13 @@
             <input type="number" id="radiusInput" value="50" class="bg-gray-700 w-20 p-2 rounded text-center">
         </div>
         <div id="anchorCoords" class="text-xs text-gray-500 italic text-center">Anchor not set</div>
-        <div class="grid grid-cols-3 gap-2">
+        <div class="grid grid-cols-2 gap-2">
+            <button id="startGpsBtn" class="bg-green-700 py-3 rounded-lg font-bold">Start GPS</button>
+            <button id="audioUnlock" class="bg-yellow-600 py-3 rounded-lg font-bold">Unlock Audio</button>
             <button id="dropBtn" class="bg-blue-600 py-3 rounded-lg font-bold">Drop</button>
             <button id="stopBtn" class="bg-red-600 py-3 rounded-lg font-bold">Stop</button>
-            <button id="toggleMap" class="bg-indigo-700 py-3 rounded-lg font-bold">Nautical</button>
         </div>
-        <button id="audioUnlock" class="bg-yellow-600 py-2 rounded-lg font-bold text-xs">Unlock Audio (Tap First)</button>
+        <button id="toggleMap" class="bg-indigo-700 py-2 rounded-lg font-bold text-xs">Toggle Nautical Map</button>
     </div>
 
     <div id="alarmPanel" class="hidden bg-red-900 border border-red-500 p-4 rounded-xl text-center alert-pulse space-y-2">
@@ -73,21 +74,19 @@
             }
         }
 
-        function initMap() {
-            map = L.map('map').setView([0, 0], 2);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-            if (navigator.geolocation) {
-                navigator.geolocation.watchPosition(updatePosition, null, { enableHighAccuracy: true });
-            }
-        }
-
         function updatePosition(pos) {
             const lat = pos.coords.latitude;
             const lng = pos.coords.longitude;
+            
+            document.getElementById('status').innerText = `Status: Monitoring (Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)})`;
+
             if (!userMarker) userMarker = L.marker([lat, lng]).addTo(map);
             else userMarker.setLatLng([lat, lng]);
 
-            if (isFirstLoad) { map.setView([lat, lng], 16); isFirstLoad = false; }
+            if (isFirstLoad) { 
+                map.setView([lat, lng], 16); 
+                isFirstLoad = false; 
+            }
 
             if (anchorPos) {
                 const dist = map.distance([lat, lng], anchorPos);
@@ -98,11 +97,26 @@
             }
         }
 
+        document.getElementById('startGpsBtn').addEventListener('click', () => {
+            if (navigator.geolocation) {
+                document.getElementById('status').innerText = "Acquiring signal...";
+                navigator.geolocation.watchPosition(updatePosition, (e) => {
+                    document.getElementById('status').innerText = "Error: " + e.message;
+                }, { enableHighAccuracy: true });
+            } else {
+                alert("Geolocation not supported.");
+            }
+        });
+
         document.getElementById('dropBtn').addEventListener('click', () => {
-            if (!userMarker) return;
+            if (!userMarker) { alert("Start GPS first!"); return; }
             anchorPos = userMarker.getLatLng();
+            if (anchorMarker) map.removeLayer(anchorMarker);
+            if (swingCircle) map.removeLayer(swingCircle);
+            
             anchorMarker = L.marker(anchorPos, {icon: L.divIcon({html: '⚓', className: 'text-2xl'})}).addTo(map);
             swingCircle = L.circle(anchorPos, {radius: document.getElementById('radiusInput').value, color: 'red'}).addTo(map);
+            document.getElementById('anchorCoords').innerText = `Anchor set: ${anchorPos.lat.toFixed(4)}, ${anchorPos.lng.toFixed(4)}`;
         });
 
         document.getElementById('stopBtn').addEventListener('click', () => {
@@ -111,7 +125,21 @@
             location.reload();
         });
 
-        window.onload = initMap;
+        document.getElementById('toggleMap').addEventListener('click', () => {
+            let layers = map._layers;
+            for (let i in layers) {
+                if (layers[i]._url && layers[i]._url.includes('seamark')) {
+                    map.removeLayer(layers[i]);
+                    return;
+                }
+            }
+            L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png').addTo(map);
+        });
+
+        window.onload = () => {
+            map = L.map('map').setView([0, 0], 2);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        };
     </script>
 </body>
 </html>

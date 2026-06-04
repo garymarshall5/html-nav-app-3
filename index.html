@@ -9,70 +9,64 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { background-color: #050a14; font-family: 'Inter', sans-serif; transition: background 0.5s; }
-        #map { height: 35vh; width: 100%; border-radius: 1.5rem; border: 1px solid rgba(255,255,255,0.1); }
-        .glass { background: rgba(17, 24, 39, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
-        .night-mode { background-color: #200000 !important; }
-        .night-mode .glass { background: rgba(60, 0, 0, 0.9); border-color: rgba(255,0,0,0.3); }
+        body { background-color: #f1f5f9; font-family: 'Inter', sans-serif; }
+        #map { height: 35vh; width: 100%; border-radius: 1.5rem; border: 1px solid rgba(0,0,0,0.1); }
+        .glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(0,0,0,0.05); }
         .alert-pulse { animation: pulse 1s infinite; }
-        @keyframes pulse { 0%, 100% { box-shadow: 0 0 0px rgba(220, 38, 38, 0); } 50% { box-shadow: 0 0 20px rgba(220, 38, 38, 0.6); } }
-        .data-mono { font-family: 'Courier New', Courier, monospace; }
+        @keyframes pulse { 0%, 100% { box-shadow: 0 0 0px rgba(220, 38, 38, 0); } 50% { box-shadow: 0 0 20px rgba(220, 38, 38, 0.4); } }
+        .data-mono { font-family: 'Courier New', Courier, monospace; font-weight: 700; }
     </style>
 </head>
-<body id="body" class="text-white min-h-screen p-4 flex flex-col gap-3">
+<body id="body" class="text-slate-800 min-h-screen p-4 flex flex-col gap-3">
 
     <header class="text-center p-1">
-        <h1 class="text-2xl font-black tracking-tighter text-blue-400 uppercase italic">Anchor Watch</h1>
-        <div id="statusHeader" class="flex justify-center gap-4 text-[10px] font-bold uppercase tracking-widest text-gray-500">
-            <span id="powerStatus">Detecting...</span>
-            <span id="status">Ready</span>
+        <h1 class="text-2xl font-black tracking-tighter text-blue-600 uppercase italic">Anchor Watch</h1>
+        <div id="statusHeader" class="flex flex-col items-center gap-1 mt-2">
+            <span id="posDisplay" class="text-blue-800 font-bold data-mono text-sm">GPS NEEDS TO BE INITIATED</span>
+            <div class="flex justify-center gap-4 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                <span id="powerStatus">--</span>
+                <span id="status">--</span>
+            </div>
         </div>
     </header>
 
-    <div id="map" class="shadow-2xl"></div>
+    <div id="map" class="shadow-lg"></div>
 
-    <div class="glass p-4 rounded-3xl flex flex-col gap-3">
+    <div class="glass p-4 rounded-3xl flex flex-col gap-3 shadow-sm">
         <div class="flex justify-between items-center text-xs font-bold uppercase tracking-widest">
-            <label class="text-blue-200">Radius (m)</label>
-            <input type="number" id="radiusInput" value="50" class="bg-black/30 w-16 p-2 rounded-xl text-center border border-gray-600">
+            <label class="text-slate-600">Radius (m)</label>
+            <input type="number" id="radiusInput" value="50" class="bg-white w-16 p-2 rounded-xl text-center border border-slate-300">
         </div>
         
-        <div id="anchorInfo" class="text-[10px] text-blue-400 text-center data-mono italic">ANCHOR NOT SET</div>
+        <div id="anchorInfo" class="text-[10px] text-blue-700 text-center data-mono italic">ANCHOR NOT SET</div>
 
-        <div class="flex justify-between gap-2">
-            <button id="nightToggle" class="bg-gray-800 p-2 rounded-lg text-[10px] uppercase font-bold flex-1">Night Mode</button>
+        <div class="flex justify-end">
             <div class="grid grid-cols-3 gap-1 w-24">
                 <div></div>
-                <button onclick="nudgeAnchor(0, 0.00005)" class="bg-gray-700 p-1 rounded text-[10px]">▲</button>
+                <button onclick="nudgeAnchor(0, 0.00005)" class="bg-slate-200 hover:bg-slate-300 p-1 rounded text-[10px]">▲</button>
                 <div></div>
-                <button onclick="nudgeAnchor(-0.00005, 0)" class="bg-gray-700 p-1 rounded text-[10px]">◀</button>
-                <div class="text-[8px] flex items-center justify-center opacity-50">NUDGE</div>
-                <button onclick="nudgeAnchor(0.00005, 0)" class="bg-gray-700 p-1 rounded text-[10px]">▶</button>
+                <button onclick="nudgeAnchor(-0.00005, 0)" class="bg-slate-200 hover:bg-slate-300 p-1 rounded text-[10px]">◀</button>
+                <div class="text-[8px] flex items-center justify-center opacity-40">NUDGE</div>
+                <button onclick="nudgeAnchor(0.00005, 0)" class="bg-slate-200 hover:bg-slate-300 p-1 rounded text-[10px]">▶</button>
                 <div></div>
-                <button onclick="nudgeAnchor(0, -0.00005)" class="bg-gray-700 p-1 rounded text-[10px]">▼</button>
+                <button onclick="nudgeAnchor(0, -0.00005)" class="bg-slate-200 hover:bg-slate-300 p-1 rounded text-[10px]">▼</button>
                 <div></div>
             </div>
         </div>
 
         <div class="grid grid-cols-2 gap-3">
-            <button id="startGpsBtn" class="bg-blue-900/50 py-3 rounded-2xl border border-blue-500/30 text-[10px] font-bold uppercase">GPS Start</button>
-            <button id="dropBtn" class="bg-emerald-900/50 py-3 rounded-2xl border border-emerald-500/30 text-[10px] font-bold uppercase">Drop Anchor</button>
+            <button id="startGpsBtn" class="bg-blue-600 text-white py-3 rounded-2xl border border-blue-400 text-[10px] font-bold uppercase shadow-md">GPS Start</button>
+            <button id="dropBtn" class="bg-emerald-600 text-white py-3 rounded-2xl border border-emerald-400 text-[10px] font-bold uppercase shadow-md">Drop Anchor</button>
         </div>
     </div>
 
-    <div id="alarmPanel" class="hidden bg-red-600 p-4 rounded-3xl text-center alert-pulse">
+    <div id="alarmPanel" class="hidden bg-red-500 p-4 rounded-3xl text-center alert-pulse text-white shadow-lg">
         <h2 class="text-lg font-black italic uppercase" id="alarmText">Dragging Alert!</h2>
     </div>
 
     <script>
         let map, anchorMarker, userMarker, swingCircle, anchorPos, trail;
         let isArmed = false;
-        let isNight = false;
-
-        document.getElementById('nightToggle').onclick = () => {
-            isNight = !isNight;
-            document.getElementById('body').classList.toggle('night-mode', isNight);
-        };
 
         function nudgeAnchor(lat, lng) {
             if (!anchorPos) return;
@@ -85,15 +79,19 @@
             if (anchorMarker) map.removeLayer(anchorMarker);
             if (swingCircle) map.removeLayer(swingCircle);
             anchorMarker = L.marker(anchorPos, {icon: L.divIcon({html: '⚓', className: 'text-2xl'})}).addTo(map);
-            swingCircle = L.circle(anchorPos, {radius: document.getElementById('radiusInput').value, color: '#3b82f6', fillOpacity: 0.1}).addTo(map);
+            swingCircle = L.circle(anchorPos, {radius: document.getElementById('radiusInput').value, color: '#2563eb', fillOpacity: 0.1}).addTo(map);
             document.getElementById('anchorInfo').innerHTML = `ANCHOR: ${anchorPos.lat.toFixed(4)}, ${anchorPos.lng.toFixed(4)}`;
         }
 
         function updatePosition(pos) {
             const currentPos = [pos.coords.latitude, pos.coords.longitude];
+            
+            document.getElementById('posDisplay').innerText = `POS: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
+            document.getElementById('status').innerText = "TRACKING";
+
             if (!userMarker) {
                 userMarker = L.marker(currentPos).addTo(map);
-                trail = L.polyline([], {color: '#60a5fa', weight: 2}).addTo(map);
+                trail = L.polyline([], {color: '#2563eb', weight: 3}).addTo(map);
                 map.setView(currentPos, 16);
             } else {
                 userMarker.setLatLng(currentPos);
@@ -117,14 +115,17 @@
             }
         }
 
-        document.getElementById('startGpsBtn').onclick = () => navigator.geolocation.watchPosition(updatePosition, null, { enableHighAccuracy: true });
+        document.getElementById('startGpsBtn').onclick = () => {
+            document.getElementById('posDisplay').innerText = "ACQUIRING...";
+            navigator.geolocation.watchPosition(updatePosition, null, { enableHighAccuracy: true });
+        };
 
         document.getElementById('dropBtn').onclick = () => {
             if (!userMarker) return alert("Waiting for GPS...");
             anchorPos = userMarker.getLatLng();
             updateAnchorVisuals();
-            document.getElementById('anchorInfo').innerText = "SETTLING... 30s";
-            setTimeout(() => { isArmed = true; }, 30000);
+            isArmed = true; 
+            document.getElementById('anchorInfo').innerText = "ANCHOR ARMED";
         };
 
         window.onload = () => {

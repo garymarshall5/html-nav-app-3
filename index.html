@@ -58,7 +58,7 @@
         <div class="grid grid-cols-2 gap-3">
             <button id="startGpsBtn" class="bg-blue-600 text-white py-3 rounded-2xl border border-blue-400 text-[10px] font-bold uppercase shadow-md">GPS Start</button>
             <button id="dropBtn" class="bg-emerald-600 text-white py-3 rounded-2xl border border-emerald-400 text-[10px] font-bold uppercase shadow-md">Drop Anchor</button>
-            <button id="stopAlarmBtn" class="col-span-2 bg-red-600 text-white py-3 rounded-2xl border border-red-400 text-[10px] font-bold uppercase shadow-md">Stop Alarm</button>
+            <button id="stopAlarmBtn" class="col-span-2 bg-red-600 text-white py-3 rounded-2xl border border-red-400 text-[10px] font-bold uppercase shadow-md">Stop Alarm & Disarm</button>
         </div>
     </div>
 
@@ -86,11 +86,15 @@
         }
 
         document.getElementById('stopAlarmBtn').onclick = () => {
+            // Stop sound
             if (oscillator) {
                 oscillator.stop();
                 oscillator = null;
             }
+            // Disarm and hide panel
+            isArmed = false;
             document.getElementById('alarmPanel').classList.add('hidden');
+            document.getElementById('anchorInfo').innerText = "ANCHOR DISARMED";
         };
 
         function nudgeAnchor(lat, lng) {

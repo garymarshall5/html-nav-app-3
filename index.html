@@ -30,7 +30,10 @@
             <input type="number" id="radiusInput" value="50" class="bg-gray-700 w-20 p-2 rounded text-center">
         </div>
         <div id="anchorCoords" class="text-xs text-gray-500 italic text-center">Anchor not set</div>
-        <button id="dropBtn" class="bg-blue-600 py-3 rounded-lg font-bold">Drop Anchor</button>
+        <div class="grid grid-cols-2 gap-2">
+            <button id="dropBtn" class="bg-blue-600 py-3 rounded-lg font-bold">Drop Anchor</button>
+            <button id="toggleMap" class="bg-indigo-700 py-3 rounded-lg font-bold">Toggle Nautical</button>
+        </div>
     </div>
 
     <div id="alarmPanel" class="hidden bg-red-900 border border-red-500 p-4 rounded-xl text-center alert-pulse space-y-2">
@@ -44,11 +47,25 @@
 
     <script>
         let map, anchorMarker, userMarker, swingCircle, anchorPos;
+        let isNautical = false;
+        let baseLayer, nauticalLayer;
+
         function initMap() {
             map = L.map('map').setView([51.505, -0.09], 15);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            baseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            nauticalLayer = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png');
+            
             navigator.geolocation.watchPosition(updatePosition, console.error, { enableHighAccuracy: true });
         }
+
+        document.getElementById('toggleMap').addEventListener('click', () => {
+            isNautical = !isNautical;
+            if (isNautical) {
+                nauticalLayer.addTo(map);
+            } else {
+                map.removeLayer(nauticalLayer);
+            }
+        });
 
         function updatePosition(pos) {
             const lat = pos.coords.latitude;
@@ -69,9 +86,14 @@
         }
 
         document.getElementById('dropBtn').addEventListener('click', () => {
+            if (!userMarker) return;
             anchorPos = userMarker.getLatLng();
-            anchorMarker = L.marker(anchorPos).addTo(map);
+            if (anchorMarker) map.removeLayer(anchorMarker);
+            if (swingCircle) map.removeLayer(swingCircle);
+            
+            anchorMarker = L.marker(anchorPos, {icon: L.divIcon({html: '⚓', className: 'text-2xl'})}).addTo(map);
             swingCircle = L.circle(anchorPos, {radius: document.getElementById('radiusInput').value, color: 'red'}).addTo(map);
+            
             document.getElementById('status').innerText = "Status: Monitoring";
             document.getElementById('anchorCoords').innerText = `Anchor at: ${anchorPos.lat.toFixed(5)}, ${anchorPos.lng.toFixed(5)}`;
         });

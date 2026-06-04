@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -41,9 +41,8 @@
         <h2 class="text-xl font-bold">⚠️ DRAGGING ALERT!</h2>
         <p id="distDisplay"></p>
         <div class="flex flex-col gap-2">
-            <a id="smsLink" href="#" class="bg-red-700 w-full py-2 rounded text-sm font-bold">Manual SMS</a>
-            <a id="emailLink" href="#" class="bg-red-700 w-full py-2 rounded text-sm font-bold">Manual Email</a>
-            <a id="shortcutLink" href="#" class="bg-green-600 w-full py-2 rounded text-sm font-bold">Auto-Send via Shortcut</a>
+            <a id="smsLink" href="#" class="bg-red-700 w-full py-2 rounded text-sm font-bold">Send SMS</a>
+            <a id="emailLink" href="#" class="bg-red-700 w-full py-2 rounded text-sm font-bold">Send Email</a>
         </div>
     </div>
 
@@ -54,6 +53,28 @@
         let baseLayer, nauticalLayer;
         let pathLine = L.polyline([], {color: 'cyan', weight: 3});
         let pathCoords = [];
+        let audioCtx, oscillator;
+
+        function initAudio() {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        function playAlarm() {
+            if (!audioCtx) initAudio();
+            if (oscillator) return; 
+            oscillator = audioCtx.createOscillator();
+            oscillator.type = 'square';
+            oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
+            oscillator.connect(audioCtx.destination);
+            oscillator.start();
+        }
+
+        function stopAlarm() {
+            if (oscillator) {
+                oscillator.stop();
+                oscillator = null;
+            }
+        }
 
         function initMap() {
             map = L.map('map').setView([0, 0], 2);
@@ -94,18 +115,17 @@
                 
                 if (dist > radius) {
                     document.getElementById('alarmPanel').classList.remove('hidden');
+                    playAlarm();
                     const msg = `ALERT: Boat dragging at ${new Date().toLocaleTimeString()}. Currently ${Math.round(dist)}m from anchor.`;
-                    
                     document.getElementById('smsLink').href = `sms:${document.getElementById('contactPhone').value}?body=${encodeURIComponent(msg)}`;
                     document.getElementById('emailLink').href = `mailto:${document.getElementById('contactEmail').value}?subject=ANCHOR ALERT&body=${encodeURIComponent(msg)}`;
-                    // URL scheme for iOS Shortcut named "SendAnchorAlert"
-                    document.getElementById('shortcutLink').href = `shortcuts://run-shortcut?name=SendAnchorAlert&input=text&text=${encodeURIComponent(msg)}`;
                 }
             }
         }
 
         document.getElementById('dropBtn').addEventListener('click', () => {
             if (!userMarker) return;
+            initAudio(); // Required to unlock audio on iOS
             anchorPos = userMarker.getLatLng();
             pathCoords = [];
             if (anchorMarker) map.removeLayer(anchorMarker);
@@ -117,6 +137,7 @@
         });
 
         document.getElementById('stopBtn').addEventListener('click', () => {
+            stopAlarm();
             anchorPos = null;
             pathCoords = [];
             pathLine.setLatLngs([]);

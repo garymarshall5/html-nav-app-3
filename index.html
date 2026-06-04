@@ -9,147 +9,127 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { background-color: #050a14; font-family: 'Inter', sans-serif; }
-        #map { height: 45vh; width: 100%; border-radius: 1.5rem; border: 1px solid rgba(255,255,255,0.1); }
+        body { background-color: #050a14; font-family: 'Inter', sans-serif; transition: background 0.5s; }
+        #map { height: 35vh; width: 100%; border-radius: 1.5rem; border: 1px solid rgba(255,255,255,0.1); }
         .glass { background: rgba(17, 24, 39, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
+        .night-mode { background-color: #200000 !important; }
+        .night-mode .glass { background: rgba(60, 0, 0, 0.9); border-color: rgba(255,0,0,0.3); }
         .alert-pulse { animation: pulse 1s infinite; }
         @keyframes pulse { 0%, 100% { box-shadow: 0 0 0px rgba(220, 38, 38, 0); } 50% { box-shadow: 0 0 20px rgba(220, 38, 38, 0.6); } }
-        .flash-screen { animation: flash-bg 0.5s infinite alternate; }
-        @keyframes flash-bg { from { background-color: #991b1b; } to { background-color: #000000; } }
         .data-mono { font-family: 'Courier New', Courier, monospace; }
     </style>
 </head>
-<body id="body" class="text-white min-h-screen p-4 flex flex-col gap-4">
+<body id="body" class="text-white min-h-screen p-4 flex flex-col gap-3">
 
-    <header class="text-center p-2">
-        <h1 class="text-3xl font-black tracking-tighter text-blue-400 uppercase italic">Anchor Watch</h1>
-        <div class="flex justify-center gap-4 text-xs mt-2 font-bold uppercase tracking-widest">
-            <span id="powerStatus" class="text-yellow-500">Detecting...</span>
-            <span id="status" class="text-gray-400">Ready</span>
+    <header class="text-center p-1">
+        <h1 class="text-2xl font-black tracking-tighter text-blue-400 uppercase italic">Anchor Watch</h1>
+        <div id="statusHeader" class="flex justify-center gap-4 text-[10px] font-bold uppercase tracking-widest text-gray-500">
+            <span id="powerStatus">Detecting...</span>
+            <span id="status">Ready</span>
         </div>
     </header>
 
     <div id="map" class="shadow-2xl"></div>
 
-    <div class="glass p-6 rounded-3xl flex flex-col gap-4">
+    <div class="glass p-4 rounded-3xl flex flex-col gap-3">
         <div class="flex justify-between items-center text-xs font-bold uppercase tracking-widest">
-            <label class="text-blue-200">Swing Radius (m)</label>
+            <label class="text-blue-200">Radius (m)</label>
             <input type="number" id="radiusInput" value="50" class="bg-black/30 w-16 p-2 rounded-xl text-center border border-gray-600">
         </div>
-        <div id="anchorCoords" class="text-[10px] text-blue-400/50 text-center data-mono italic">ANCHOR NOT SET</div>
-        <div class="grid grid-cols-2 gap-3">
-            <button id="startGpsBtn" class="flex flex-col items-center justify-center gap-1 bg-blue-900/50 hover:bg-blue-800 py-4 rounded-2xl border border-blue-500/30 transition">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
-                <span class="text-[10px] font-bold uppercase">GPS</span>
-            </button>
-            <button id="audioUnlock" class="flex flex-col items-center justify-center gap-1 bg-yellow-900/50 hover:bg-yellow-800 py-4 rounded-2xl border border-yellow-500/30 transition">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-                <span class="text-[10px] font-bold uppercase">Audio</span>
-            </button>
-            <button id="dropBtn" class="flex flex-col items-center justify-center gap-1 bg-emerald-900/50 hover:bg-emerald-800 py-4 rounded-2xl border border-emerald-500/30 transition">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M6 14a6 6 0 0 0 12 0"/><path d="M6 14h12"/><path d="M12 2L8 6h8l-4-4z"/></svg>
-                <span class="text-[10px] font-bold uppercase">Drop</span>
-            </button>
-            <button id="stopBtn" class="flex flex-col items-center justify-center gap-1 bg-red-900/50 hover:bg-red-800 py-4 rounded-2xl border border-red-500/30 transition">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12"/></svg>
-                <span class="text-[10px] font-bold uppercase">Stop</span>
-            </button>
+        
+        <div id="anchorInfo" class="text-[10px] text-blue-400 text-center data-mono italic">ANCHOR NOT SET</div>
+
+        <div class="flex justify-between gap-2">
+            <button id="nightToggle" class="bg-gray-800 p-2 rounded-lg text-[10px] uppercase font-bold flex-1">Night Mode</button>
+            <div class="grid grid-cols-3 gap-1 w-24">
+                <div></div>
+                <button onclick="nudgeAnchor(0, 0.00005)" class="bg-gray-700 p-1 rounded text-[10px]">▲</button>
+                <div></div>
+                <button onclick="nudgeAnchor(-0.00005, 0)" class="bg-gray-700 p-1 rounded text-[10px]">◀</button>
+                <div class="text-[8px] flex items-center justify-center opacity-50">NUDGE</div>
+                <button onclick="nudgeAnchor(0.00005, 0)" class="bg-gray-700 p-1 rounded text-[10px]">▶</button>
+                <div></div>
+                <button onclick="nudgeAnchor(0, -0.00005)" class="bg-gray-700 p-1 rounded text-[10px]">▼</button>
+                <div></div>
+            </div>
         </div>
-        <button id="toggleMap" class="text-[9px] text-gray-500 tracking-[0.2em] uppercase font-bold mt-1 hover:text-white transition">Nautical Charts</button>
+
+        <div class="grid grid-cols-2 gap-3">
+            <button id="startGpsBtn" class="bg-blue-900/50 py-3 rounded-2xl border border-blue-500/30 text-[10px] font-bold uppercase">GPS Start</button>
+            <button id="dropBtn" class="bg-emerald-900/50 py-3 rounded-2xl border border-emerald-500/30 text-[10px] font-bold uppercase">Drop Anchor</button>
+        </div>
     </div>
 
-    <div id="alarmPanel" class="hidden bg-red-600 p-6 rounded-3xl text-center alert-pulse shadow-[0_0_50px_rgba(220,38,38,0.5)]">
-        <h2 class="text-3xl font-black italic uppercase">Dragging Alert!</h2>
+    <div id="alarmPanel" class="hidden bg-red-600 p-4 rounded-3xl text-center alert-pulse">
+        <h2 class="text-lg font-black italic uppercase" id="alarmText">Dragging Alert!</h2>
     </div>
 
     <script>
-        let map, anchorMarker, userMarker, swingCircle, anchorPos;
-        let isFirstLoad = true;
-        let audioCtx, oscillator;
+        let map, anchorMarker, userMarker, swingCircle, anchorPos, trail;
+        let isArmed = false;
+        let isNight = false;
 
-        async function checkPowerStatus() {
-            if (navigator.getBattery) {
-                const battery = await navigator.getBattery();
-                const updatePower = () => {
-                    const el = document.getElementById('powerStatus');
-                    el.innerText = battery.charging ? "POWER: AC" : "POWER: DC";
-                    el.className = battery.charging ? "text-green-400" : "text-red-400";
-                };
-                updatePower();
-                battery.addEventListener('chargingchange', updatePower);
-            }
+        document.getElementById('nightToggle').onclick = () => {
+            isNight = !isNight;
+            document.getElementById('body').classList.toggle('night-mode', isNight);
+        };
+
+        function nudgeAnchor(lat, lng) {
+            if (!anchorPos) return;
+            anchorPos.lat += lat;
+            anchorPos.lng += lng;
+            updateAnchorVisuals();
         }
 
-        function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
-
-        document.getElementById('audioUnlock').addEventListener('click', () => {
-            initAudio();
-            alert("Audio System Primed.");
-        });
-
-        function playAlarm() {
-            if (!audioCtx) return;
-            if (oscillator) return; 
-            document.getElementById('body').classList.add('flash-screen');
-            oscillator = audioCtx.createOscillator();
-            oscillator.type = 'square';
-            oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
-            oscillator.connect(audioCtx.destination);
-            oscillator.start();
-        }
-
-        function stopAlarm() {
-            if (oscillator) {
-                oscillator.stop();
-                oscillator = null;
-                document.getElementById('body').classList.remove('flash-screen');
-            }
-        }
-
-        function updatePosition(pos) {
-            const lat = pos.coords.latitude;
-            const lng = pos.coords.longitude;
-            document.getElementById('status').innerText = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-            if (!userMarker) userMarker = L.marker([lat, lng]).addTo(map);
-            else userMarker.setLatLng([lat, lng]);
-            if (isFirstLoad) { map.setView([lat, lng], 16); isFirstLoad = false; }
-            if (anchorPos) {
-                const dist = map.distance([lat, lng], anchorPos);
-                if (dist > document.getElementById('radiusInput').value) {
-                    document.getElementById('alarmPanel').classList.remove('hidden');
-                    playAlarm();
-                }
-            }
-        }
-
-        document.getElementById('startGpsBtn').addEventListener('click', () => {
-            if (navigator.geolocation) {
-                document.getElementById('status').innerText = "Acquiring...";
-                navigator.geolocation.watchPosition(updatePosition, null, { enableHighAccuracy: true });
-            }
-        });
-
-        document.getElementById('dropBtn').addEventListener('click', () => {
-            if (!userMarker) { alert("GPS Lock Required"); return; }
-            anchorPos = userMarker.getLatLng();
+        function updateAnchorVisuals() {
             if (anchorMarker) map.removeLayer(anchorMarker);
             if (swingCircle) map.removeLayer(swingCircle);
             anchorMarker = L.marker(anchorPos, {icon: L.divIcon({html: '⚓', className: 'text-2xl'})}).addTo(map);
             swingCircle = L.circle(anchorPos, {radius: document.getElementById('radiusInput').value, color: '#3b82f6', fillOpacity: 0.1}).addTo(map);
-            document.getElementById('anchorCoords').innerText = `ANCHOR: ${anchorPos.lat.toFixed(4)}, ${anchorPos.lng.toFixed(4)}`;
-        });
+            document.getElementById('anchorInfo').innerHTML = `ANCHOR: ${anchorPos.lat.toFixed(4)}, ${anchorPos.lng.toFixed(4)}`;
+        }
 
-        document.getElementById('stopBtn').addEventListener('click', () => { stopAlarm(); location.reload(); });
-        document.getElementById('toggleMap').addEventListener('click', () => {
-            let layers = map._layers;
-            for (let i in layers) { if (layers[i]._url && layers[i]._url.includes('seamark')) { map.removeLayer(layers[i]); return; } }
-            L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png').addTo(map);
-        });
+        function updatePosition(pos) {
+            const currentPos = [pos.coords.latitude, pos.coords.longitude];
+            if (!userMarker) {
+                userMarker = L.marker(currentPos).addTo(map);
+                trail = L.polyline([], {color: '#60a5fa', weight: 2}).addTo(map);
+                map.setView(currentPos, 16);
+            } else {
+                userMarker.setLatLng(currentPos);
+            }
+            trail.addLatLng(currentPos);
+
+            if (isArmed && anchorPos) {
+                const dist = map.distance(currentPos, anchorPos);
+                const radius = document.getElementById('radiusInput').value;
+                document.getElementById('anchorInfo').innerHTML = `DIST: ${Math.round(dist)}m / LIMIT: ${radius}m`;
+
+                if (dist > radius) {
+                    document.getElementById('alarmPanel').classList.remove('hidden');
+                    document.getElementById('alarmText').innerText = "DRAGGING!";
+                } else if (dist > radius * 0.8) {
+                    document.getElementById('alarmPanel').classList.remove('hidden');
+                    document.getElementById('alarmText').innerText = "WARNING: APPROACHING LIMIT";
+                } else {
+                    document.getElementById('alarmPanel').classList.add('hidden');
+                }
+            }
+        }
+
+        document.getElementById('startGpsBtn').onclick = () => navigator.geolocation.watchPosition(updatePosition, null, { enableHighAccuracy: true });
+
+        document.getElementById('dropBtn').onclick = () => {
+            if (!userMarker) return alert("Waiting for GPS...");
+            anchorPos = userMarker.getLatLng();
+            updateAnchorVisuals();
+            document.getElementById('anchorInfo').innerText = "SETTLING... 30s";
+            setTimeout(() => { isArmed = true; }, 30000);
+        };
 
         window.onload = () => {
-            map = L.map('map').setView([0, 0], 2);
+            map = L.map('map').setView([51.79, -0.65], 13);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-            checkPowerStatus();
         };
     </script>
 </body>

@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Anchor Watch Elite</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { background-color: #050a14; }
+        body { background-color: #050a14; font-family: 'Inter', sans-serif; }
         #map { height: 45vh; width: 100%; border-radius: 1.5rem; border: 1px solid rgba(255,255,255,0.1); }
         .glass { background: rgba(17, 24, 39, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
         .alert-pulse { animation: pulse 1s infinite; }
@@ -18,40 +19,47 @@
         .data-mono { font-family: 'Courier New', Courier, monospace; }
     </style>
 </head>
-<body id="body" class="text-white min-h-screen p-4 flex flex-col gap-4 font-sans">
+<body id="body" class="text-white min-h-screen p-4 flex flex-col gap-4">
 
     <header class="text-center p-2">
         <h1 class="text-3xl font-black tracking-tighter text-blue-400 uppercase italic">Anchor Watch</h1>
-        <div class="flex justify-center gap-4 text-xs mt-2">
-            <span id="powerStatus" class="font-bold text-yellow-500">Detecting power...</span>
-            <span id="status" class="text-gray-400">System Ready</span>
+        <div class="flex justify-center gap-4 text-xs mt-2 font-bold uppercase tracking-widest">
+            <span id="powerStatus" class="text-yellow-500">Detecting...</span>
+            <span id="status" class="text-gray-400">Ready</span>
         </div>
     </header>
 
     <div id="map" class="shadow-2xl"></div>
 
-    <!-- Tide & Data Console -->
-    <section class="glass p-4 rounded-3xl flex flex-col gap-2">
-        <input type="text" id="tideInfo" placeholder="Enter Location, Date & Tide Data..." class="bg-transparent border-b border-gray-600 focus:border-blue-500 outline-none w-full text-sm text-center">
-    </section>
-
     <div class="glass p-6 rounded-3xl flex flex-col gap-4">
-        <div class="flex justify-between items-center text-sm font-bold">
-            <label class="text-blue-200">SWING RADIUS (m)</label>
+        <div class="flex justify-between items-center text-xs font-bold uppercase tracking-widest">
+            <label class="text-blue-200">Swing Radius (m)</label>
             <input type="number" id="radiusInput" value="50" class="bg-black/30 w-16 p-2 rounded-xl text-center border border-gray-600">
         </div>
-        <div id="anchorCoords" class="text-xs text-blue-400/50 text-center data-mono italic">ANCHOR NOT SET</div>
+        <div id="anchorCoords" class="text-[10px] text-blue-400/50 text-center data-mono italic">ANCHOR NOT SET</div>
         <div class="grid grid-cols-2 gap-3">
-            <button id="startGpsBtn" class="bg-blue-900/50 hover:bg-blue-800 py-4 rounded-2xl font-bold border border-blue-500/30 transition">START GPS</button>
-            <button id="audioUnlock" class="bg-yellow-900/50 hover:bg-yellow-800 py-4 rounded-2xl font-bold border border-yellow-500/30 transition">UNLOCK AUDIO</button>
-            <button id="dropBtn" class="bg-emerald-900/50 hover:bg-emerald-800 py-4 rounded-2xl font-bold border border-emerald-500/30 transition">DROP ANCHOR</button>
-            <button id="stopBtn" class="bg-red-900/50 hover:bg-red-800 py-4 rounded-2xl font-bold border border-red-500/30 transition">STOP MONITOR</button>
+            <button id="startGpsBtn" class="flex flex-col items-center justify-center gap-1 bg-blue-900/50 hover:bg-blue-800 py-4 rounded-2xl border border-blue-500/30 transition">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+                <span class="text-[10px] font-bold uppercase">GPS</span>
+            </button>
+            <button id="audioUnlock" class="flex flex-col items-center justify-center gap-1 bg-yellow-900/50 hover:bg-yellow-800 py-4 rounded-2xl border border-yellow-500/30 transition">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                <span class="text-[10px] font-bold uppercase">Audio</span>
+            </button>
+            <button id="dropBtn" class="flex flex-col items-center justify-center gap-1 bg-emerald-900/50 hover:bg-emerald-800 py-4 rounded-2xl border border-emerald-500/30 transition">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M6 14a6 6 0 0 0 12 0"/><path d="M6 14h12"/><path d="M12 2L8 6h8l-4-4z"/></svg>
+                <span class="text-[10px] font-bold uppercase">Drop</span>
+            </button>
+            <button id="stopBtn" class="flex flex-col items-center justify-center gap-1 bg-red-900/50 hover:bg-red-800 py-4 rounded-2xl border border-red-500/30 transition">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12"/></svg>
+                <span class="text-[10px] font-bold uppercase">Stop</span>
+            </button>
         </div>
-        <button id="toggleMap" class="text-[10px] text-gray-500 tracking-widest uppercase font-bold mt-2 hover:text-white transition">Toggle Nautical Charts</button>
+        <button id="toggleMap" class="text-[9px] text-gray-500 tracking-[0.2em] uppercase font-bold mt-1 hover:text-white transition">Nautical Charts</button>
     </div>
 
     <div id="alarmPanel" class="hidden bg-red-600 p-6 rounded-3xl text-center alert-pulse shadow-[0_0_50px_rgba(220,38,38,0.5)]">
-        <h2 class="text-3xl font-black italic">⚠️ DRAGGING ALERT!</h2>
+        <h2 class="text-3xl font-black italic uppercase">Dragging Alert!</h2>
     </div>
 
     <script>
@@ -64,8 +72,8 @@
                 const battery = await navigator.getBattery();
                 const updatePower = () => {
                     const el = document.getElementById('powerStatus');
-                    el.innerText = battery.charging ? "⚡ POWER: AC" : "⚠️ POWER: DC";
-                    el.className = battery.charging ? "font-bold text-green-400" : "font-bold text-red-400";
+                    el.innerText = battery.charging ? "POWER: AC" : "POWER: DC";
+                    el.className = battery.charging ? "text-green-400" : "text-red-400";
                 };
                 updatePower();
                 battery.addEventListener('chargingchange', updatePower);
@@ -101,7 +109,7 @@
         function updatePosition(pos) {
             const lat = pos.coords.latitude;
             const lng = pos.coords.longitude;
-            document.getElementById('status').innerText = `POS: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+            document.getElementById('status').innerText = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
             if (!userMarker) userMarker = L.marker([lat, lng]).addTo(map);
             else userMarker.setLatLng([lat, lng]);
             if (isFirstLoad) { map.setView([lat, lng], 16); isFirstLoad = false; }
@@ -128,7 +136,7 @@
             if (swingCircle) map.removeLayer(swingCircle);
             anchorMarker = L.marker(anchorPos, {icon: L.divIcon({html: '⚓', className: 'text-2xl'})}).addTo(map);
             swingCircle = L.circle(anchorPos, {radius: document.getElementById('radiusInput').value, color: '#3b82f6', fillOpacity: 0.1}).addTo(map);
-            document.getElementById('anchorCoords').innerText = `SET: ${anchorPos.lat.toFixed(4)}, ${anchorPos.lng.toFixed(4)}`;
+            document.getElementById('anchorCoords').innerText = `ANCHOR: ${anchorPos.lat.toFixed(4)}, ${anchorPos.lng.toFixed(4)}`;
         });
 
         document.getElementById('stopBtn').addEventListener('click', () => { stopAlarm(); location.reload(); });

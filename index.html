@@ -30,9 +30,10 @@
             <input type="number" id="radiusInput" value="50" class="bg-gray-700 w-20 p-2 rounded text-center">
         </div>
         <div id="anchorCoords" class="text-xs text-gray-500 italic text-center">Anchor not set</div>
-        <div class="grid grid-cols-2 gap-2">
-            <button id="dropBtn" class="bg-blue-600 py-3 rounded-lg font-bold">Drop Anchor</button>
-            <button id="toggleMap" class="bg-indigo-700 py-3 rounded-lg font-bold">Toggle Nautical</button>
+        <div class="grid grid-cols-3 gap-2">
+            <button id="dropBtn" class="bg-blue-600 py-3 rounded-lg font-bold">Drop</button>
+            <button id="stopBtn" class="bg-red-600 py-3 rounded-lg font-bold">Stop</button>
+            <button id="toggleMap" class="bg-indigo-700 py-3 rounded-lg font-bold">Nautical</button>
         </div>
     </div>
 
@@ -50,18 +51,19 @@
         let isNautical = false;
         let isFirstLoad = true;
         let baseLayer, nauticalLayer;
+        let pathLine = L.polyline([], {color: 'cyan', weight: 3});
+        let pathCoords = [];
 
         function initMap() {
             map = L.map('map').setView([0, 0], 2);
             baseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
             nauticalLayer = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png');
+            pathLine.addTo(map);
             
             if (navigator.geolocation) {
                 navigator.geolocation.watchPosition(updatePosition, (e) => {
                     document.getElementById('status').innerText = "GPS Error: " + e.message;
                 }, { enableHighAccuracy: true, timeout: 10000 });
-            } else {
-                document.getElementById('status').innerText = "Geolocation not supported";
             }
         }
 
@@ -74,24 +76,24 @@
             const lat = pos.coords.latitude;
             const lng = pos.coords.longitude;
             
-            if (!userMarker) {
-                userMarker = L.marker([lat, lng]).addTo(map).bindPopup("Current Position");
-            } else {
-                userMarker.setLatLng([lat, lng]);
-            }
+            if (!userMarker) userMarker = L.marker([lat, lng]).addTo(map).bindPopup("Current Position");
+            else userMarker.setLatLng([lat, lng]);
 
             if (isFirstLoad) {
                 map.setView([lat, lng], 16);
                 isFirstLoad = false;
-                document.getElementById('status').innerText = "Status: Monitoring";
             }
 
             if (anchorPos) {
+                pathCoords.push([lat, lng]);
+                pathLine.setLatLngs(pathCoords);
                 const dist = map.distance([lat, lng], anchorPos);
                 const radius = document.getElementById('radiusInput').value;
+                document.getElementById('status').innerText = `Status: Monitoring | Drift: ${Math.round(dist)}m`;
+                
                 if (dist > radius) {
                     document.getElementById('alarmPanel').classList.remove('hidden');
-                    const msg = `ALERT: Boat dragging. Currently ${Math.round(dist)}m from anchor.`;
+                    const msg = `ALERT: Boat dragging at ${new Date().toLocaleTimeString()}. Currently ${Math.round(dist)}m from anchor.`;
                     document.getElementById('smsLink').href = `sms:${document.getElementById('contactPhone').value}?body=${encodeURIComponent(msg)}`;
                     document.getElementById('emailLink').href = `mailto:${document.getElementById('contactEmail').value}?subject=ANCHOR ALERT&body=${encodeURIComponent(msg)}`;
                 }
@@ -101,13 +103,24 @@
         document.getElementById('dropBtn').addEventListener('click', () => {
             if (!userMarker) return;
             anchorPos = userMarker.getLatLng();
+            pathCoords = [];
             if (anchorMarker) map.removeLayer(anchorMarker);
             if (swingCircle) map.removeLayer(swingCircle);
             
             anchorMarker = L.marker(anchorPos, {icon: L.divIcon({html: '⚓', className: 'text-2xl'})}).addTo(map);
             swingCircle = L.circle(anchorPos, {radius: document.getElementById('radiusInput').value, color: 'red'}).addTo(map);
-            
-            document.getElementById('anchorCoords').innerText = `Anchor at: ${anchorPos.lat.toFixed(5)}, ${anchorPos.lng.toFixed(5)}`;
+            document.getElementById('anchorCoords').innerText = `Anchor set: ${anchorPos.lat.toFixed(4)}, ${anchorPos.lng.toFixed(4)}`;
+        });
+
+        document.getElementById('stopBtn').addEventListener('click', () => {
+            anchorPos = null;
+            pathCoords = [];
+            pathLine.setLatLngs([]);
+            if (anchorMarker) map.removeLayer(anchorMarker);
+            if (swingCircle) map.removeLayer(swingCircle);
+            document.getElementById('alarmPanel').classList.add('hidden');
+            document.getElementById('status').innerText = "Status: Stopped";
+            document.getElementById('anchorCoords').innerText = "Anchor not set";
         });
 
         window.onload = initMap;

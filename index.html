@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        #map { height: 60vh; width: 100%; border-radius: 1rem; }
+        #map { height: 40vh; width: 100%; border-radius: 1rem; }
         .alert-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
     </style>
@@ -17,88 +17,63 @@
 
     <header class="text-center">
         <h1 class="text-2xl font-bold text-blue-400">Anchor Watch</h1>
-        <p id="status" class="text-sm text-gray-400">Initializing GPS...</p>
+        <p id="status" class="text-sm text-gray-400">Status: Waiting to drop anchor</p>
     </header>
 
     <div id="map" class="shadow-lg border border-gray-700"></div>
 
-    <div class="grid grid-cols-2 gap-4">
-        <button id="dropBtn" class="bg-blue-600 hover:bg-blue-500 py-4 rounded-xl font-bold">Drop Anchor</button>
-        <button id="toggleMap" class="bg-indigo-700 hover:bg-indigo-600 py-4 rounded-xl font-bold">Toggle Nautical</button>
-        <button id="clearBtn" class="bg-gray-700 hover:bg-gray-600 py-4 rounded-xl font-bold col-span-2">Clear</button>
+    <div class="bg-gray-800 p-4 rounded-xl flex flex-col gap-3">
+        <input type="tel" id="contactPhone" placeholder="Emergency Phone (for SMS)" class="bg-gray-700 p-2 rounded w-full">
+        <input type="email" id="contactEmail" placeholder="Emergency Email" class="bg-gray-700 p-2 rounded w-full">
+        <div class="flex justify-between items-center">
+            <label class="text-gray-300">Swing Radius (m):</label>
+            <input type="number" id="radiusInput" value="50" class="bg-gray-700 w-20 p-2 rounded text-center">
+        </div>
+        <div id="anchorCoords" class="text-xs text-gray-500 italic text-center">Anchor not set</div>
+        <button id="dropBtn" class="bg-blue-600 py-3 rounded-lg font-bold">Drop Anchor</button>
     </div>
 
-    <div id="alarmPanel" class="hidden bg-red-900 border border-red-500 p-4 rounded-xl text-center alert-pulse">
+    <div id="alarmPanel" class="hidden bg-red-900 border border-red-500 p-4 rounded-xl text-center alert-pulse space-y-2">
         <h2 class="text-xl font-bold">⚠️ DRAGGING ALERT!</h2>
         <p id="distDisplay"></p>
+        <div class="flex gap-2">
+            <a id="smsLink" href="#" class="bg-red-700 w-full py-2 rounded text-sm font-bold">Send SMS</a>
+            <a id="emailLink" href="#" class="bg-red-700 w-full py-2 rounded text-sm font-bold">Send Email</a>
+        </div>
     </div>
 
     <script>
         let map, anchorMarker, userMarker, swingCircle, anchorPos;
-        let radius = 50; // meters
-        let isNautical = false;
-        let baseLayer, nauticalLayer;
-
         function initMap() {
             map = L.map('map').setView([51.505, -0.09], 15);
-            
-            baseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
-            nauticalLayer = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png');
-            
-            baseLayer.addTo(map);
-            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
             navigator.geolocation.watchPosition(updatePosition, console.error, { enableHighAccuracy: true });
         }
-
-        document.getElementById('toggleMap').addEventListener('click', () => {
-            isNautical = !isNautical;
-            if (isNautical) {
-                nauticalLayer.addTo(map);
-            } else {
-                map.removeLayer(nauticalLayer);
-            }
-        });
 
         function updatePosition(pos) {
             const lat = pos.coords.latitude;
             const lng = pos.coords.longitude;
-
-            if (!userMarker) {
-                userMarker = L.marker([lat, lng]).addTo(map).bindPopup("You");
-            } else {
-                userMarker.setLatLng([lat, lng]);
-            }
-            map.setView([lat, lng]);
+            if (!userMarker) userMarker = L.marker([lat, lng]).addTo(map);
+            else userMarker.setLatLng([lat, lng]);
 
             if (anchorPos) {
                 const dist = map.distance([lat, lng], anchorPos);
-                document.getElementById('status').innerText = `Drift: ${Math.round(dist)}m (Radius: ${radius}m)`;
-                
+                const radius = document.getElementById('radiusInput').value;
                 if (dist > radius) {
                     document.getElementById('alarmPanel').classList.remove('hidden');
-                    document.getElementById('distDisplay').innerText = `Moved ${Math.round(dist - radius)}m outside limit!`;
+                    const msg = `ALERT: Boat dragging. Currently ${Math.round(dist)}m from anchor.`;
+                    document.getElementById('smsLink').href = `sms:${document.getElementById('contactPhone').value}?body=${encodeURIComponent(msg)}`;
+                    document.getElementById('emailLink').href = `mailto:${document.getElementById('contactEmail').value}?subject=ANCHOR ALERT&body=${encodeURIComponent(msg)}`;
                 }
             }
         }
 
         document.getElementById('dropBtn').addEventListener('click', () => {
-            if (userMarker) {
-                anchorPos = userMarker.getLatLng();
-                if (anchorMarker) map.removeLayer(anchorMarker);
-                if (swingCircle) map.removeLayer(swingCircle);
-                
-                anchorMarker = L.marker(anchorPos, {icon: L.divIcon({html: '⚓', className: 'text-2xl'})}).addTo(map);
-                swingCircle = L.circle(anchorPos, {radius: radius, color: 'red'}).addTo(map);
-                document.getElementById('status').innerText = "Anchor Set";
-            }
-        });
-
-        document.getElementById('clearBtn').addEventListener('click', () => {
-            anchorPos = null;
-            if (anchorMarker) map.removeLayer(anchorMarker);
-            if (swingCircle) map.removeLayer(swingCircle);
-            document.getElementById('alarmPanel').classList.add('hidden');
-            document.getElementById('status').innerText = "Monitoring...";
+            anchorPos = userMarker.getLatLng();
+            anchorMarker = L.marker(anchorPos).addTo(map);
+            swingCircle = L.circle(anchorPos, {radius: document.getElementById('radiusInput').value, color: 'red'}).addTo(map);
+            document.getElementById('status').innerText = "Status: Monitoring";
+            document.getElementById('anchorCoords').innerText = `Anchor at: ${anchorPos.lat.toFixed(5)}, ${anchorPos.lng.toFixed(5)}`;
         });
 
         window.onload = initMap;

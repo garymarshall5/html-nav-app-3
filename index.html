@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -23,8 +23,6 @@
     <div id="map" class="shadow-lg border border-gray-700"></div>
 
     <div class="bg-gray-800 p-4 rounded-xl flex flex-col gap-3">
-        <input type="tel" id="contactPhone" placeholder="Emergency Phone (for SMS)" class="bg-gray-700 p-2 rounded w-full">
-        <input type="email" id="contactEmail" placeholder="Emergency Email" class="bg-gray-700 p-2 rounded w-full">
         <div class="flex justify-between items-center">
             <label class="text-gray-300">Swing Radius (m):</label>
             <input type="number" id="radiusInput" value="50" class="bg-gray-700 w-20 p-2 rounded text-center">
@@ -35,32 +33,31 @@
             <button id="stopBtn" class="bg-red-600 py-3 rounded-lg font-bold">Stop</button>
             <button id="toggleMap" class="bg-indigo-700 py-3 rounded-lg font-bold">Nautical</button>
         </div>
+        <button id="audioUnlock" class="bg-yellow-600 py-2 rounded-lg font-bold text-xs">Unlock Audio (Tap First)</button>
     </div>
 
     <div id="alarmPanel" class="hidden bg-red-900 border border-red-500 p-4 rounded-xl text-center alert-pulse space-y-2">
         <h2 class="text-xl font-bold">⚠️ DRAGGING ALERT!</h2>
-        <p id="distDisplay"></p>
-        <div class="flex flex-col gap-2">
-            <a id="smsLink" href="#" class="bg-red-700 w-full py-2 rounded text-sm font-bold">Send SMS</a>
-            <a id="emailLink" href="#" class="bg-red-700 w-full py-2 rounded text-sm font-bold">Send Email</a>
-        </div>
     </div>
 
     <script>
         let map, anchorMarker, userMarker, swingCircle, anchorPos;
-        let isNautical = false;
         let isFirstLoad = true;
-        let baseLayer, nauticalLayer;
-        let pathLine = L.polyline([], {color: 'cyan', weight: 3});
-        let pathCoords = [];
         let audioCtx, oscillator;
 
         function initAudio() {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
         }
 
+        document.getElementById('audioUnlock').addEventListener('click', () => {
+            initAudio();
+            alert("Audio unlocked. Alarm will sound if dragging.");
+        });
+
         function playAlarm() {
-            if (!audioCtx) initAudio();
+            if (!audioCtx) return;
             if (oscillator) return; 
             oscillator = audioCtx.createOscillator();
             oscillator.type = 'square';
@@ -78,74 +75,40 @@
 
         function initMap() {
             map = L.map('map').setView([0, 0], 2);
-            baseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-            nauticalLayer = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png');
-            pathLine.addTo(map);
-            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
             if (navigator.geolocation) {
-                navigator.geolocation.watchPosition(updatePosition, (e) => {
-                    document.getElementById('status').innerText = "GPS Error: " + e.message;
-                }, { enableHighAccuracy: true, timeout: 10000 });
+                navigator.geolocation.watchPosition(updatePosition, null, { enableHighAccuracy: true });
             }
         }
-
-        document.getElementById('toggleMap').addEventListener('click', () => {
-            isNautical = !isNautical;
-            isNautical ? nauticalLayer.addTo(map) : map.removeLayer(nauticalLayer);
-        });
 
         function updatePosition(pos) {
             const lat = pos.coords.latitude;
             const lng = pos.coords.longitude;
-            
-            if (!userMarker) userMarker = L.marker([lat, lng]).addTo(map).bindPopup("Current Position");
+            if (!userMarker) userMarker = L.marker([lat, lng]).addTo(map);
             else userMarker.setLatLng([lat, lng]);
 
-            if (isFirstLoad) {
-                map.setView([lat, lng], 16);
-                isFirstLoad = false;
-            }
+            if (isFirstLoad) { map.setView([lat, lng], 16); isFirstLoad = false; }
 
             if (anchorPos) {
-                pathCoords.push([lat, lng]);
-                pathLine.setLatLngs(pathCoords);
                 const dist = map.distance([lat, lng], anchorPos);
-                const radius = document.getElementById('radiusInput').value;
-                document.getElementById('status').innerText = `Status: Monitoring | Drift: ${Math.round(dist)}m`;
-                
-                if (dist > radius) {
+                if (dist > document.getElementById('radiusInput').value) {
                     document.getElementById('alarmPanel').classList.remove('hidden');
                     playAlarm();
-                    const msg = `ALERT: Boat dragging at ${new Date().toLocaleTimeString()}. Currently ${Math.round(dist)}m from anchor.`;
-                    document.getElementById('smsLink').href = `sms:${document.getElementById('contactPhone').value}?body=${encodeURIComponent(msg)}`;
-                    document.getElementById('emailLink').href = `mailto:${document.getElementById('contactEmail').value}?subject=ANCHOR ALERT&body=${encodeURIComponent(msg)}`;
                 }
             }
         }
 
         document.getElementById('dropBtn').addEventListener('click', () => {
             if (!userMarker) return;
-            initAudio(); // Required to unlock audio on iOS
             anchorPos = userMarker.getLatLng();
-            pathCoords = [];
-            if (anchorMarker) map.removeLayer(anchorMarker);
-            if (swingCircle) map.removeLayer(swingCircle);
-            
             anchorMarker = L.marker(anchorPos, {icon: L.divIcon({html: '⚓', className: 'text-2xl'})}).addTo(map);
             swingCircle = L.circle(anchorPos, {radius: document.getElementById('radiusInput').value, color: 'red'}).addTo(map);
-            document.getElementById('anchorCoords').innerText = `Anchor set: ${anchorPos.lat.toFixed(4)}, ${anchorPos.lng.toFixed(4)}`;
         });
 
         document.getElementById('stopBtn').addEventListener('click', () => {
             stopAlarm();
             anchorPos = null;
-            pathCoords = [];
-            pathLine.setLatLngs([]);
-            if (anchorMarker) map.removeLayer(anchorMarker);
-            if (swingCircle) map.removeLayer(swingCircle);
-            document.getElementById('alarmPanel').classList.add('hidden');
-            document.getElementById('status').innerText = "Status: Stopped";
-            document.getElementById('anchorCoords').innerText = "Anchor not set";
+            location.reload();
         });
 
         window.onload = initMap;

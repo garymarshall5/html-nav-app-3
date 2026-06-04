@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -41,18 +42,8 @@
         <div id="anchorInfo" class="text-[10px] text-blue-700 text-center data-mono italic">ANCHOR NOT SET</div>
 
         <div class="flex justify-between items-center gap-2">
+            <button id="notifyBtn" class="bg-purple-100 hover:bg-purple-200 px-4 py-2 rounded-lg text-[10px] font-bold uppercase text-purple-800">Enable Notif</button>
             <button id="audioInitBtn" class="bg-slate-200 hover:bg-slate-300 px-4 py-2 rounded-lg text-[10px] font-bold uppercase">Audio Init</button>
-            <div class="grid grid-cols-3 gap-1 w-24">
-                <div></div>
-                <button onclick="nudgeAnchor(0, 0.00005)" class="bg-slate-200 hover:bg-slate-300 p-1 rounded text-[10px]">▲</button>
-                <div></div>
-                <button onclick="nudgeAnchor(-0.00005, 0)" class="bg-slate-200 hover:bg-slate-300 p-1 rounded text-[10px]">◀</button>
-                <div class="text-[8px] flex items-center justify-center opacity-40">NUDGE</div>
-                <button onclick="nudgeAnchor(0.00005, 0)" class="bg-slate-200 hover:bg-slate-300 p-1 rounded text-[10px]">▶</button>
-                <div></div>
-                <button onclick="nudgeAnchor(0, -0.00005)" class="bg-slate-200 hover:bg-slate-300 p-1 rounded text-[10px]">▼</button>
-                <div></div>
-            </div>
         </div>
 
         <div class="grid grid-cols-2 gap-3">
@@ -71,6 +62,20 @@
         let isArmed = false;
         let audioCtx, oscillator;
 
+        document.getElementById('notifyBtn').onclick = () => {
+            if (Notification.permission !== 'granted') {
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') alert("Notifications enabled.");
+                });
+            }
+        };
+
+        function sendNotification(title, body) {
+            if (Notification.permission === 'granted') {
+                new Notification(title, { body: body, icon: 'https://cdn-icons-png.flaticon.com/512/3063/3063198.png' });
+            }
+        }
+
         document.getElementById('audioInitBtn').onclick = () => {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             alert("Audio system initialized.");
@@ -86,37 +91,15 @@
         }
 
         document.getElementById('stopAlarmBtn').onclick = () => {
-            // Stop sound
-            if (oscillator) {
-                oscillator.stop();
-                oscillator = null;
-            }
-            // Disarm and hide panel
+            if (oscillator) { oscillator.stop(); oscillator = null; }
             isArmed = false;
             document.getElementById('alarmPanel').classList.add('hidden');
             document.getElementById('anchorInfo').innerText = "ANCHOR DISARMED";
         };
 
-        function nudgeAnchor(lat, lng) {
-            if (!anchorPos) return;
-            anchorPos.lat += lat;
-            anchorPos.lng += lng;
-            updateAnchorVisuals();
-        }
-
-        function updateAnchorVisuals() {
-            if (anchorMarker) map.removeLayer(anchorMarker);
-            if (swingCircle) map.removeLayer(swingCircle);
-            anchorMarker = L.marker(anchorPos, {icon: L.divIcon({html: '⚓', className: 'text-2xl'})}).addTo(map);
-            swingCircle = L.circle(anchorPos, {radius: document.getElementById('radiusInput').value, color: '#2563eb', fillOpacity: 0.1}).addTo(map);
-            document.getElementById('anchorInfo').innerHTML = `ANCHOR: ${anchorPos.lat.toFixed(4)}, ${anchorPos.lng.toFixed(4)}`;
-        }
-
         function updatePosition(pos) {
             const currentPos = [pos.coords.latitude, pos.coords.longitude];
-            
             document.getElementById('posDisplay').innerText = `POS: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
-            document.getElementById('status').innerText = "TRACKING";
 
             if (!userMarker) {
                 userMarker = L.marker(currentPos).addTo(map);
@@ -135,25 +118,21 @@
                 if (dist > radius) {
                     document.getElementById('alarmPanel').classList.remove('hidden');
                     document.getElementById('alarmText').innerText = "DRAGGING!";
+                    sendNotification("ANCHOR DRAGGING!", "Boat has moved outside of radius.");
                     playAlarm();
                 } else if (dist > radius * 0.8) {
                     document.getElementById('alarmPanel').classList.remove('hidden');
-                    document.getElementById('alarmText').innerText = "WARNING: APPROACHING LIMIT";
+                    document.getElementById('alarmText').innerText = "WARNING: LIMIT APPROACHING";
                 } else {
                     document.getElementById('alarmPanel').classList.add('hidden');
                 }
             }
         }
 
-        document.getElementById('startGpsBtn').onclick = () => {
-            document.getElementById('posDisplay').innerText = "ACQUIRING...";
-            navigator.geolocation.watchPosition(updatePosition, null, { enableHighAccuracy: true });
-        };
-
+        document.getElementById('startGpsBtn').onclick = () => navigator.geolocation.watchPosition(updatePosition, null, { enableHighAccuracy: true });
         document.getElementById('dropBtn').onclick = () => {
             if (!userMarker) return alert("Waiting for GPS...");
             anchorPos = userMarker.getLatLng();
-            updateAnchorVisuals();
             isArmed = true; 
             document.getElementById('anchorInfo').innerText = "ANCHOR ARMED";
         };
@@ -165,3 +144,4 @@
     </script>
 </body>
 </html>
+

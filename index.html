@@ -17,7 +17,7 @@
 
     <header class="text-center">
         <h1 class="text-2xl font-bold text-blue-400">Anchor Watch</h1>
-        <p id="status" class="text-sm text-gray-400">Status: Waiting to drop anchor</p>
+        <p id="status" class="text-sm text-gray-400">Status: Waiting for GPS...</p>
     </header>
 
     <div id="map" class="shadow-lg border border-gray-700"></div>
@@ -48,30 +48,43 @@
     <script>
         let map, anchorMarker, userMarker, swingCircle, anchorPos;
         let isNautical = false;
+        let isFirstLoad = true;
         let baseLayer, nauticalLayer;
 
         function initMap() {
-            map = L.map('map').setView([51.505, -0.09], 15);
+            map = L.map('map').setView([0, 0], 2);
             baseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
             nauticalLayer = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png');
             
-            navigator.geolocation.watchPosition(updatePosition, console.error, { enableHighAccuracy: true });
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition(updatePosition, (e) => {
+                    document.getElementById('status').innerText = "GPS Error: " + e.message;
+                }, { enableHighAccuracy: true, timeout: 10000 });
+            } else {
+                document.getElementById('status').innerText = "Geolocation not supported";
+            }
         }
 
         document.getElementById('toggleMap').addEventListener('click', () => {
             isNautical = !isNautical;
-            if (isNautical) {
-                nauticalLayer.addTo(map);
-            } else {
-                map.removeLayer(nauticalLayer);
-            }
+            isNautical ? nauticalLayer.addTo(map) : map.removeLayer(nauticalLayer);
         });
 
         function updatePosition(pos) {
             const lat = pos.coords.latitude;
             const lng = pos.coords.longitude;
-            if (!userMarker) userMarker = L.marker([lat, lng]).addTo(map);
-            else userMarker.setLatLng([lat, lng]);
+            
+            if (!userMarker) {
+                userMarker = L.marker([lat, lng]).addTo(map).bindPopup("Current Position");
+            } else {
+                userMarker.setLatLng([lat, lng]);
+            }
+
+            if (isFirstLoad) {
+                map.setView([lat, lng], 16);
+                isFirstLoad = false;
+                document.getElementById('status').innerText = "Status: Monitoring";
+            }
 
             if (anchorPos) {
                 const dist = map.distance([lat, lng], anchorPos);
@@ -94,7 +107,6 @@
             anchorMarker = L.marker(anchorPos, {icon: L.divIcon({html: '⚓', className: 'text-2xl'})}).addTo(map);
             swingCircle = L.circle(anchorPos, {radius: document.getElementById('radiusInput').value, color: 'red'}).addTo(map);
             
-            document.getElementById('status').innerText = "Status: Monitoring";
             document.getElementById('anchorCoords').innerText = `Anchor at: ${anchorPos.lat.toFixed(5)}, ${anchorPos.lng.toFixed(5)}`;
         });
 

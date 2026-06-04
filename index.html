@@ -3,43 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anchor Watch Pro</title>
+    <title>Anchor Watch Elite</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        #map { height: 40vh; width: 100%; border-radius: 1rem; }
-        .alert-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+        body { background-color: #050a14; }
+        #map { height: 45vh; width: 100%; border-radius: 1.5rem; border: 1px solid rgba(255,255,255,0.1); }
+        .glass { background: rgba(17, 24, 39, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
+        .alert-pulse { animation: pulse 1s infinite; }
+        @keyframes pulse { 0%, 100% { box-shadow: 0 0 0px rgba(220, 38, 38, 0); } 50% { box-shadow: 0 0 20px rgba(220, 38, 38, 0.6); } }
+        .flash-screen { animation: flash-bg 0.5s infinite alternate; }
+        @keyframes flash-bg { from { background-color: #991b1b; } to { background-color: #000000; } }
+        .data-mono { font-family: 'Courier New', Courier, monospace; }
     </style>
 </head>
-<body class="bg-gray-900 text-white min-h-screen p-4 flex flex-col gap-4">
+<body id="body" class="text-white min-h-screen p-4 flex flex-col gap-4 font-sans">
 
-    <header class="text-center">
-        <h1 class="text-2xl font-bold text-blue-400">Anchor Watch</h1>
-        <p id="powerStatus" class="text-sm font-semibold text-yellow-500 my-1">Detecting power...</p>
-        <p id="status" class="text-sm text-gray-400">Status: Waiting for GPS...</p>
+    <header class="text-center p-2">
+        <h1 class="text-3xl font-black tracking-tighter text-blue-400 uppercase italic">Anchor Watch</h1>
+        <div class="flex justify-center gap-4 text-xs mt-2">
+            <span id="powerStatus" class="font-bold text-yellow-500">Detecting power...</span>
+            <span id="status" class="text-gray-400">System Ready</span>
+        </div>
     </header>
 
-    <div id="map" class="shadow-lg border border-gray-700"></div>
+    <div id="map" class="shadow-2xl"></div>
 
-    <div class="bg-gray-800 p-4 rounded-xl flex flex-col gap-3">
-        <div class="flex justify-between items-center">
-            <label class="text-gray-300">Swing Radius (m):</label>
-            <input type="number" id="radiusInput" value="50" class="bg-gray-700 w-20 p-2 rounded text-center">
+    <!-- Tide & Data Console -->
+    <section class="glass p-4 rounded-3xl flex flex-col gap-2">
+        <input type="text" id="tideInfo" placeholder="Enter Location, Date & Tide Data..." class="bg-transparent border-b border-gray-600 focus:border-blue-500 outline-none w-full text-sm text-center">
+    </section>
+
+    <div class="glass p-6 rounded-3xl flex flex-col gap-4">
+        <div class="flex justify-between items-center text-sm font-bold">
+            <label class="text-blue-200">SWING RADIUS (m)</label>
+            <input type="number" id="radiusInput" value="50" class="bg-black/30 w-16 p-2 rounded-xl text-center border border-gray-600">
         </div>
-        <div id="anchorCoords" class="text-xs text-gray-500 italic text-center">Anchor not set</div>
-        <div class="grid grid-cols-2 gap-2">
-            <button id="startGpsBtn" class="bg-green-700 py-3 rounded-lg font-bold">Start GPS</button>
-            <button id="audioUnlock" class="bg-yellow-600 py-3 rounded-lg font-bold">Unlock Audio</button>
-            <button id="dropBtn" class="bg-blue-600 py-3 rounded-lg font-bold">Drop</button>
-            <button id="stopBtn" class="bg-red-600 py-3 rounded-lg font-bold">Stop</button>
+        <div id="anchorCoords" class="text-xs text-blue-400/50 text-center data-mono italic">ANCHOR NOT SET</div>
+        <div class="grid grid-cols-2 gap-3">
+            <button id="startGpsBtn" class="bg-blue-900/50 hover:bg-blue-800 py-4 rounded-2xl font-bold border border-blue-500/30 transition">START GPS</button>
+            <button id="audioUnlock" class="bg-yellow-900/50 hover:bg-yellow-800 py-4 rounded-2xl font-bold border border-yellow-500/30 transition">UNLOCK AUDIO</button>
+            <button id="dropBtn" class="bg-emerald-900/50 hover:bg-emerald-800 py-4 rounded-2xl font-bold border border-emerald-500/30 transition">DROP ANCHOR</button>
+            <button id="stopBtn" class="bg-red-900/50 hover:bg-red-800 py-4 rounded-2xl font-bold border border-red-500/30 transition">STOP MONITOR</button>
         </div>
-        <button id="toggleMap" class="bg-indigo-700 py-2 rounded-lg font-bold text-xs">Toggle Nautical Map</button>
+        <button id="toggleMap" class="text-[10px] text-gray-500 tracking-widest uppercase font-bold mt-2 hover:text-white transition">Toggle Nautical Charts</button>
     </div>
 
-    <div id="alarmPanel" class="hidden bg-red-900 border border-red-500 p-4 rounded-xl text-center alert-pulse space-y-2">
-        <h2 class="text-xl font-bold">⚠️ DRAGGING ALERT!</h2>
+    <div id="alarmPanel" class="hidden bg-red-600 p-6 rounded-3xl text-center alert-pulse shadow-[0_0_50px_rgba(220,38,38,0.5)]">
+        <h2 class="text-3xl font-black italic">⚠️ DRAGGING ALERT!</h2>
     </div>
 
     <script>
@@ -47,39 +59,30 @@
         let isFirstLoad = true;
         let audioCtx, oscillator;
 
-        // Power Status Monitoring
         async function checkPowerStatus() {
             if (navigator.getBattery) {
                 const battery = await navigator.getBattery();
                 const updatePower = () => {
                     const el = document.getElementById('powerStatus');
-                    if (battery.charging) {
-                        el.innerText = "⚡ Power: Connected";
-                        el.className = "text-sm font-semibold text-green-400 my-1";
-                    } else {
-                        el.innerText = "⚠️ Power: On Battery";
-                        el.className = "text-sm font-semibold text-red-400 my-1";
-                    }
+                    el.innerText = battery.charging ? "⚡ POWER: AC" : "⚠️ POWER: DC";
+                    el.className = battery.charging ? "font-bold text-green-400" : "font-bold text-red-400";
                 };
                 updatePower();
                 battery.addEventListener('chargingchange', updatePower);
             }
         }
 
-        function initAudio() {
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            }
-        }
+        function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
 
         document.getElementById('audioUnlock').addEventListener('click', () => {
             initAudio();
-            alert("Audio unlocked. Alarm will sound if dragging.");
+            alert("Audio System Primed.");
         });
 
         function playAlarm() {
             if (!audioCtx) return;
             if (oscillator) return; 
+            document.getElementById('body').classList.add('flash-screen');
             oscillator = audioCtx.createOscillator();
             oscillator.type = 'square';
             oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
@@ -91,23 +94,17 @@
             if (oscillator) {
                 oscillator.stop();
                 oscillator = null;
+                document.getElementById('body').classList.remove('flash-screen');
             }
         }
 
         function updatePosition(pos) {
             const lat = pos.coords.latitude;
             const lng = pos.coords.longitude;
-            
-            document.getElementById('status').innerText = `Status: Monitoring (Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)})`;
-
+            document.getElementById('status').innerText = `POS: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
             if (!userMarker) userMarker = L.marker([lat, lng]).addTo(map);
             else userMarker.setLatLng([lat, lng]);
-
-            if (isFirstLoad) { 
-                map.setView([lat, lng], 16); 
-                isFirstLoad = false; 
-            }
-
+            if (isFirstLoad) { map.setView([lat, lng], 16); isFirstLoad = false; }
             if (anchorPos) {
                 const dist = map.distance([lat, lng], anchorPos);
                 if (dist > document.getElementById('radiusInput').value) {
@@ -119,40 +116,25 @@
 
         document.getElementById('startGpsBtn').addEventListener('click', () => {
             if (navigator.geolocation) {
-                document.getElementById('status').innerText = "Acquiring signal...";
-                navigator.geolocation.watchPosition(updatePosition, (e) => {
-                    document.getElementById('status').innerText = "Error: " + e.message;
-                }, { enableHighAccuracy: true });
-            } else {
-                alert("Geolocation not supported.");
+                document.getElementById('status').innerText = "Acquiring...";
+                navigator.geolocation.watchPosition(updatePosition, null, { enableHighAccuracy: true });
             }
         });
 
         document.getElementById('dropBtn').addEventListener('click', () => {
-            if (!userMarker) { alert("Start GPS first!"); return; }
+            if (!userMarker) { alert("GPS Lock Required"); return; }
             anchorPos = userMarker.getLatLng();
             if (anchorMarker) map.removeLayer(anchorMarker);
             if (swingCircle) map.removeLayer(swingCircle);
-            
             anchorMarker = L.marker(anchorPos, {icon: L.divIcon({html: '⚓', className: 'text-2xl'})}).addTo(map);
-            swingCircle = L.circle(anchorPos, {radius: document.getElementById('radiusInput').value, color: 'red'}).addTo(map);
-            document.getElementById('anchorCoords').innerText = `Anchor set: ${anchorPos.lat.toFixed(4)}, ${anchorPos.lng.toFixed(4)}`;
+            swingCircle = L.circle(anchorPos, {radius: document.getElementById('radiusInput').value, color: '#3b82f6', fillOpacity: 0.1}).addTo(map);
+            document.getElementById('anchorCoords').innerText = `SET: ${anchorPos.lat.toFixed(4)}, ${anchorPos.lng.toFixed(4)}`;
         });
 
-        document.getElementById('stopBtn').addEventListener('click', () => {
-            stopAlarm();
-            anchorPos = null;
-            location.reload();
-        });
-
+        document.getElementById('stopBtn').addEventListener('click', () => { stopAlarm(); location.reload(); });
         document.getElementById('toggleMap').addEventListener('click', () => {
             let layers = map._layers;
-            for (let i in layers) {
-                if (layers[i]._url && layers[i]._url.includes('seamark')) {
-                    map.removeLayer(layers[i]);
-                    return;
-                }
-            }
+            for (let i in layers) { if (layers[i]._url && layers[i]._url.includes('seamark')) { map.removeLayer(layers[i]); return; } }
             L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png').addTo(map);
         });
 

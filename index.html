@@ -17,6 +17,7 @@
 
     <header class="text-center">
         <h1 class="text-2xl font-bold text-blue-400">Anchor Watch</h1>
+        <p id="powerStatus" class="text-sm font-semibold text-yellow-500 my-1">Detecting power...</p>
         <p id="status" class="text-sm text-gray-400">Status: Waiting for GPS...</p>
     </header>
 
@@ -45,6 +46,25 @@
         let map, anchorMarker, userMarker, swingCircle, anchorPos;
         let isFirstLoad = true;
         let audioCtx, oscillator;
+
+        // Power Status Monitoring
+        async function checkPowerStatus() {
+            if (navigator.getBattery) {
+                const battery = await navigator.getBattery();
+                const updatePower = () => {
+                    const el = document.getElementById('powerStatus');
+                    if (battery.charging) {
+                        el.innerText = "⚡ Power: Connected";
+                        el.className = "text-sm font-semibold text-green-400 my-1";
+                    } else {
+                        el.innerText = "⚠️ Power: On Battery";
+                        el.className = "text-sm font-semibold text-red-400 my-1";
+                    }
+                };
+                updatePower();
+                battery.addEventListener('chargingchange', updatePower);
+            }
+        }
 
         function initAudio() {
             if (!audioCtx) {
@@ -139,6 +159,7 @@
         window.onload = () => {
             map = L.map('map').setView([0, 0], 2);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            checkPowerStatus();
         };
     </script>
 </body>

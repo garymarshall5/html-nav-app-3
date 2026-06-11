@@ -57,7 +57,7 @@
     </div>
 
     <script>
-        let map, anchorMarker, userMarker, swingCircle, anchorPos, trail;
+        let map, anchorMarker, userMarker, swingCircle, anchorPos, trail, breadcrumbsGroup;
         let isArmed = false;
         let audioCtx, oscillator;
 
@@ -94,7 +94,18 @@
             isArmed = false;
             document.getElementById('alarmPanel').classList.add('hidden');
             document.getElementById('anchorInfo').innerText = "ANCHOR DISARMED";
+            
+            // Clear anchor visuals
+            if (swingCircle) { map.removeLayer(swingCircle); swingCircle = null; }
+            if (anchorMarker) { map.removeLayer(anchorMarker); anchorMarker = null; }
         };
+
+        // Update radius circle dynamically if input changes
+        document.getElementById('radiusInput').addEventListener('input', (e) => {
+            if (isArmed && swingCircle) {
+                swingCircle.setRadius(parseFloat(e.target.value) || 0);
+            }
+        });
 
         function updatePosition(pos) {
             const currentPos = [pos.coords.latitude, pos.coords.longitude];
@@ -102,12 +113,23 @@
 
             if (!userMarker) {
                 userMarker = L.marker(currentPos).addTo(map);
-                trail = L.polyline([], {color: '#2563eb', weight: 3}).addTo(map);
+                trail = L.polyline([], {color: '#2563eb', weight: 3, opacity: 0.5}).addTo(map);
                 map.setView(currentPos, 16);
             } else {
                 userMarker.setLatLng(currentPos);
             }
+            
+            // Add to polyline trail
             trail.addLatLng(currentPos);
+            
+            // Drop a breadcrumb dot
+            L.circleMarker(currentPos, {
+                radius: 3,
+                color: '#1e40af',
+                fillColor: '#3b82f6',
+                fillOpacity: 1,
+                weight: 1
+            }).addTo(breadcrumbsGroup);
 
             if (isArmed && anchorPos) {
                 const dist = map.distance(currentPos, anchorPos);
@@ -129,18 +151,42 @@
         }
 
         document.getElementById('startGpsBtn').onclick = () => navigator.geolocation.watchPosition(updatePosition, null, { enableHighAccuracy: true });
+        
         document.getElementById('dropBtn').onclick = () => {
             if (!userMarker) return alert("Waiting for GPS...");
             anchorPos = userMarker.getLatLng();
             isArmed = true; 
+            
+            const currentRadius = parseFloat(document.getElementById('radiusInput').value);
+
+            // Draw Anchor Center Marker (Green Dot)
+            if (anchorMarker) map.removeLayer(anchorMarker);
+            anchorMarker = L.circleMarker(anchorPos, {
+                radius: 6,
+                color: '#047857',
+                fillColor: '#10b981',
+                fillOpacity: 1,
+                weight: 2
+            }).addTo(map);
+
+            // Draw Swing Radius Circle
+            if (swingCircle) map.removeLayer(swingCircle);
+            swingCircle = L.circle(anchorPos, {
+                color: '#ef4444',
+                fillColor: '#ef4444',
+                fillOpacity: 0.15,
+                weight: 2,
+                radius: currentRadius
+            }).addTo(map);
+
             document.getElementById('anchorInfo').innerText = "ANCHOR ARMED";
         };
 
         window.onload = () => {
             map = L.map('map').setView([51.79, -0.65], 13);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            breadcrumbsGroup = L.layerGroup().addTo(map);
         };
     </script>
 </body>
 </html>
-
